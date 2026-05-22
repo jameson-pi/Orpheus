@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 230 22% 10%;
+    --foreground: 210 40% 98%;
+    --card: 230 22% 12%;
+    --card-foreground: 210 40% 98%;
+    --popover: 230 22% 10%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 230 60% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 230 20% 18%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 230 20% 18%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 199 82% 65%;
+    --accent-foreground: 230 22% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 230 20% 18%;
+    --input: 230 20% 18%;
+    --ring: 230 60% 50%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+}
+
+@layer utilities {
+  .text-orpheus-gradient {
+    background: linear-gradient(to right, #F53D3D, #0F388A);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .bg-orpheus-gradient {
+    background: linear-gradient(to right, #F53D3D, #0F388A);
+  }
+
+  .cosmic-shadow {
+    box-shadow: 0 0 40px -10px rgba(51, 77, 204, 0.3);
+  }
+}

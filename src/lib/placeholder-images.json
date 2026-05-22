@@ -1,0 +1,16 @@
+{
+  "placeholderImages": [
+    {
+      "id": "user-avatar",
+      "description": "Minimalist user icon avatar",
+      "imageUrl": "https://picsum.photos/seed/user/100/100",
+      "imageHint": "user profile"
+    },
+    {
+      "id": "orpheus-avatar",
+      "description": "Cosmic AI assistant avatar",
+      "imageUrl": "https://picsum.photos/seed/orpheus/100/100",
+      "imageHint": "robot assistant"
+    }
+  ]
+}
