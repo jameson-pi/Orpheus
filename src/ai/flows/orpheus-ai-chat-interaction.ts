@@ -61,9 +61,10 @@ const orpheusAIChatInteractionFlow = ai.defineFlow(
       });
 
       return response.choices[0]?.message?.content || 'I processed your request, but the stars were silent. Try again?';
-    } catch (error: any) {
+    } catch (error) {
       console.error('Hack Club Proxy Error:', error);
-      throw new Error(`Failed to connect to Orpheus via Hack Club AI Proxy: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to connect to Orpheus via Hack Club AI Proxy: ${message}`);
     }
   }
 );
