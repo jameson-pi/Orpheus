@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Orpheus AI | Cosmic Intelligence',
-  description: 'Minimalist AI chat powered by Hack Club',
+  title: 'Orpheus AI | Intelligent Assistant',
+  description: 'A minimalist AI chat experience.',
 };
 
 export default function RootLayout({

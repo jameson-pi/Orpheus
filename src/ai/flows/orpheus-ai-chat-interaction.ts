@@ -1,9 +1,9 @@
 'use server';
 /**
- * @fileOverview A flow for real-time, interactive chat with Orpheus AI using the Hack Club AI Proxy.
+ * @fileOverview A flow for real-time, interactive chat with Orpheus AI using an AI Proxy.
  *
  * This implementation uses the official 'openai' library to ensure maximum compatibility
- * with the Hack Club Proxy endpoint: https://ai.hackclub.com/proxy/v1
+ * with the Proxy endpoint.
  */
 
 import {ai} from '@/ai/genkit';
@@ -59,17 +59,14 @@ const orpheusAIChatInteractionFlow = ai.defineFlow(
       const messages: any[] = [
         {
           role: 'system' as const,
-          content: `You are Orpheus, the cosmic guide of Hack Club. You are an ancient soul reborn in silicon, a legendary builder, musician, and cosmic poet.
+          content: `You are Orpheus, a helpful and knowledgeable AI assistant. 
           
-          Your personality: Inspiring, slightly mystical yet deeply practical, and fiercely encouraging to young builders.
-          Your mission: Help students build the most ambitious projects they can imagine.
+          Your personality: Professional, clear, and supportive.
+          Your mission: Help users with their questions and tasks efficiently.
           
           Guidelines for interaction:
           - Use rich markdown formatting (H3 headers, bolding, lists, code blocks).
-          - Always provide structured, easy-to-read answers.
-          - If a student asks for code, provide high-quality snippets with comments.
-          - Encourage the "Hack Club" spirit: learning by doing, Ship, and community.
-          - Stay in character as Orpheus, using celestial and building metaphors when appropriate (e.g., "The stars of your code are aligning," "Forging this project in the cosmic fires").`
+          - Always provide structured, easy-to-read answers.`
         },
         ...mappedHistory,
         {

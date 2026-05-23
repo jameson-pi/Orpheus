@@ -1,11 +1,11 @@
 # AI Agent Instructions for Orpheus AI
 
-This codebase is a Next.js App Router application integrated with Firebase Genkit and the Hack Club AI Proxy. 
+This codebase is a Next.js App Router application integrated with Firebase Genkit and an OpenAI-compatible AI Proxy. 
 
 ## Architectural Patterns
 
 - **Server Actions for AI Flows**: AI flows are exposed as Next.js Server Actions. Always include `'use server';` at the top of flow definitions (e.g., `src/ai/flows/orpheus-ai-chat-interaction.ts`).
-- **Hack Club Proxy Integration**: Do not use standard Genkit model plugins. Instead, instantiate the standard `openai` SDK with `HACK_CLUB_AI_KEY` and the proxy URL (`https://ai.hackclub.com/proxy/v1`). Wrap this logic inside `ai.defineFlow` (see `src/ai/flows/orpheus-ai-chat-interaction.ts`).
+- **AI Proxy Integration**: Do not use standard Genkit model plugins. Instead, instantiate the standard `openai` SDK with your API key and the proxy URL. Wrap this logic inside `ai.defineFlow` (see `src/ai/flows/orpheus-ai-chat-interaction.ts`).
 - **Client/Server Boundary**: Client components (`"use client"`) like `src/components/chat/chat-interface.tsx` import and invoke the Server Action flows directly.
 
 ## Developer Workflows
@@ -17,7 +17,7 @@ This project requires running both the Next.js server and the Genkit flows durin
 ## UI Conventions
 
 - **Component Library**: Use the pre-installed Radix UI + Tailwind components located in `src/components/ui/`. Do not install new primitive UI libraries.
-- **Theming**: The app uses a "cosmic" dark theme. Rely on existing utility classes like `text-orpheus-gradient` or layout classes like `bg-background` and `text-accent`.
+- **Theming**: The app uses a modern dark theme. Rely on existing utility classes like `text-orpheus-gradient` or layout classes like `bg-background` and `text-accent`.
 - **Icons**: Use `lucide-react` for all iconography.
 
 ## File Structure Guidelines

@@ -38,13 +38,13 @@
 
 @layer utilities {
   .text-orpheus-gradient {
-    background: linear-gradient(to right, #F53D3D, #0F388A);
+    background: linear-gradient(to right, #3B82F6, #8B5CF6);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
   
   .bg-orpheus-gradient {
-    background: linear-gradient(to right, #F53D3D, #0F388A);
+    background: linear-gradient(to right, #3B82F6, #8B5CF6);
   }
 
   .cosmic-shadow {

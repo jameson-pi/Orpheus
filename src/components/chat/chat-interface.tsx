@@ -5,6 +5,7 @@ import { Send, Sparkles, Loader2, Cpu, Globe } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { MessageBubble } from "./message-bubble"
+import { ThinkingIndicator } from "./thinking-indicator"
 import { orpheusAIChatInteractionStream } from "@/ai/flows/orpheus-ai-chat-interaction"
 import { getMessages, addMessage, updateConversationTitle } from "@/app/actions/chat"
 import { cn } from "@/lib/utils"
@@ -85,21 +86,12 @@ export function ChatInterface({ conversationId, onTitleUpdateAction }: { convers
     }
 
     try {
-      // Create a placeholder AI message that we will update as we stream
-      const aiMessageId = (Date.now() + 1).toString()
-      
       // Prepare history to send (previous messages)
       const history = messages.map(m => ({
         role: m.role,
         content: m.content
       }));
 
-      setMessages((prev) => [...prev, {
-        id: aiMessageId,
-        role: "ai",
-        content: "",
-      }])
-      
       const stream = await orpheusAIChatInteractionStream({ 
         message: userContent, 
         model: selectedModel,
@@ -107,14 +99,25 @@ export function ChatInterface({ conversationId, onTitleUpdateAction }: { convers
       })
 
       let fullContent = ""
+      let hasStarted = false
+      const aiMessageId = Date.now().toString()
       
-      // @ts-expect-error - Genkit streams are AsyncIterables in modern Next.js
-      for await (const chunk of stream) {
-        // Genkit stream chunks often contain the data in different formats depending on how they were sent
-        // When using sendChunk in defineFlow, the chunks are typically the values passed to sendChunk
-        const content = (typeof chunk === 'string' ? chunk : (chunk as Record<string, any>).content || (chunk as Record<string, any>).value || "") as string;
+      const streamIter = stream as unknown as AsyncIterable<string | { content?: string, value?: string }>;
+      
+      for await (const chunk of streamIter) {
+        const content = typeof chunk === 'string' 
+          ? chunk 
+          : (chunk?.content || chunk?.value || "") as string;
         
         if (content) {
+          if (!hasStarted) {
+            hasStarted = true
+            setMessages((prev) => [...prev, {
+              id: aiMessageId,
+              role: "ai",
+              content: "",
+            }])
+          }
           fullContent += content;
           setMessages((prev) => 
             prev.map((msg) => 
@@ -125,7 +128,7 @@ export function ChatInterface({ conversationId, onTitleUpdateAction }: { convers
       }
       
       // Save AI msg to DB once fully received
-      if (conversationId && conversationId.includes('-')) {
+      if (conversationId && conversationId.includes('-') && fullContent) {
         addMessage(conversationId, "ai", fullContent).catch(err => 
           console.error("Failed to save AI message:", err)
         );
@@ -189,13 +192,13 @@ export function ChatInterface({ conversationId, onTitleUpdateAction }: { convers
                 </div>
               </div>
               <div className="space-y-2 max-w-xl px-4">
-                <h2 className="text-4xl font-extrabold text-white tracking-tight">Cosmic Intelligence</h2>
+                <h2 className="text-4xl font-extrabold text-white tracking-tight">Orpheus AI</h2>
                 <p className="text-lg text-muted-foreground leading-relaxed">
-                  I am Orpheus, the celestial guide of Hack Club. Ask me anything about building, coding, or the stars.
+                  I am Orpheus, a helpful and knowledgeable AI assistant. Ask me anything about coding, building, or solving problems.
                 </p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl px-6 pt-4">
-                {["Explain quantum computing", "How to build a website?", "Who is Orpheus?", "Tell me a space joke"].map((prompt) => (
+                {["Explain quantum computing", "How to build a website?", "Write a Python script", "Summarize a complex topic"].map((prompt) => (
                   <button 
                     key={prompt}
                     onClick={() => setInput(prompt)}
@@ -211,19 +214,8 @@ export function ChatInterface({ conversationId, onTitleUpdateAction }: { convers
               {messages.map((msg) => (
                 <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
               ))}
-              {isLoading && (
-                <motion.div 
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center gap-3 py-6 px-4 text-muted-foreground"
-                >
-                  <div className="flex gap-1">
-                    <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0 }} className="h-1.5 w-1.5 rounded-full bg-accent" />
-                    <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.2 }} className="h-1.5 w-1.5 rounded-full bg-accent" />
-                    <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.4 }} className="h-1.5 w-1.5 rounded-full bg-accent" />
-                  </div>
-                  <span className="text-xs font-medium uppercase tracking-widest text-accent/70">Orpheus is calculating...</span>
-                </motion.div>
+              {isLoading && !messages.some(m => m.role === 'ai' && m.id === messages[messages.length-1]?.id) && (
+                <ThinkingIndicator />
               )}
             </div>
           )}
