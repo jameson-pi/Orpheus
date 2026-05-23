@@ -1,4 +1,4 @@
-import { ChatDashboard } from "../components/chat/chat-dashboard"
+import { ChatDashboard } from "@/components/chat/chat-dashboard"
 
 function Stars() {
   return (
