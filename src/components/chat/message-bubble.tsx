@@ -4,9 +4,11 @@ import { cn } from "@/lib/utils"
 import { Sparkles, User } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { useState } from "react"
 import { Copy, Check } from "lucide-react"
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 interface MessageBubbleProps {
   role: "user" | "ai"
@@ -71,14 +73,32 @@ export function MessageBubble({ role, content }: MessageBubbleProps) {
               remarkPlugins={[remarkGfm]}
               components={{
                 p: ({children}) => <p className="mb-4 last:mb-0">{children}</p>,
-                code: ({...props}) => (
-                  <code {...props} className="bg-white/10 rounded px-1.5 py-0.5 font-code text-sm" />
-                ),
-                pre: ({children}) => (
-                  <pre className="bg-[#0D1117]/80 border border-white/10 rounded-xl p-4 overflow-x-auto my-4 scrollbar-hide">
-                    {children}
-                  </pre>
-                )
+                code: ({inline, className, children, ...props}: any) => {
+                  const match = /language-(\w+)/.exec(className || '')
+                  if (!inline) {
+                    return (
+                      <div className="relative group my-4">
+                        <div className="absolute right-3 top-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <CodeCopyButton content={String(children).replace(/\n$/, '')} />
+                        </div>
+                        <SyntaxHighlighter
+                          {...props}
+                          style={vscDarkPlus}
+                          language={match ? match[1] : 'text'}
+                          PreTag="div"
+                          className="!bg-[#0D1117]/80 !border !border-white/10 !rounded-xl !p-4 !my-0 scrollbar-hide text-sm"
+                        >
+                          {String(children).replace(/\n$/, '')}
+                        </SyntaxHighlighter>
+                      </div>
+                    )
+                  }
+                  return (
+                    <code {...props} className={cn("bg-white/10 rounded px-1.5 py-0.5 font-code text-sm", className)}>
+                      {children}
+                    </code>
+                  )
+                }
               }}
             >
               {content}
@@ -87,5 +107,24 @@ export function MessageBubble({ role, content }: MessageBubbleProps) {
         </div>
       </div>
     </motion.div>
+  )
+}
+
+function CodeCopyButton({ content }: { content: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const copy = () => {
+    navigator.clipboard.writeText(content)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <button
+      onClick={copy}
+      className="bg-white/10 hover:bg-white/20 p-1.5 rounded-md backdrop-blur-md border border-white/10 transition-all"
+    >
+      {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3 text-white/70" />}
+    </button>
   )
 }

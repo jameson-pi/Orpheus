@@ -98,23 +98,23 @@
     --tw-prose-bullets: theme('colors.accent.DEFAULT');
     --tw-prose-quotes: theme('colors.muted.foreground');
     --tw-prose-hr: theme('colors.border');
-    --tw-prose-th-borders: theme('colors.border');
-    --tw-prose-td-borders: theme('colors.border');
   }
 
-  .prose h3 {
-    @apply text-xl font-bold mt-8 mb-4 text-accent;
+  /* Remove default backticks from prose code elements */
+  .prose code::before,
+  .prose code::after {
+    display: none !important;
   }
 
-  .prose p {
-    @apply mb-4 leading-relaxed;
+  /* Scrollbar hide utility */
+  .scrollbar-hide {
+    /* IE and Edge */
+    -ms-overflow-style: none;
+    /* Firefox */
+    scrollbar-width: none;
   }
 
-  .prose ul, .prose ol {
-    @apply mb-6 ml-4;
-  }
-
-  .prose li {
-    @apply mb-2;
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
