@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
@@ -6,8 +5,11 @@ import { Send, Sparkles, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { MessageBubble } from "./message-bubble"
-import { orpheusAIChatInteraction } from "@/ai/flows/orpheus-ai-chat-interaction"
+import { orpheusAIChatInteraction, orpheusAIChatInteractionStream } from "@/ai/flows/orpheus-ai-chat-interaction"
+import { getMessages, addMessage, updateConversationTitle } from "@/app/actions/chat"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { motion, AnimatePresence } from "framer-motion"
 
 type Message = {
   id: string
@@ -15,9 +17,18 @@ type Message = {
   content: string
 }
 
-export function ChatInterface() {
+const AI_MODELS = [
+  { id: "google/gemini-3.5-flash", name: "Gemini 3.5 Flash" },
+  { id: "google/gemini-3.1-pro-preview", name: "Gemini 3.1 Pro" },
+  { id: "openai/gpt-5.5", name: "GPT-5.5" },
+  { id: "x-ai/grok-4.20", name: "Grok 4.20" },
+  { id: "qwen/qwen3.7-max", name: "Qwen3.7 Max" }
+];
+
+export function ChatInterface({ conversationId, onTitleUpdateAction }: { conversationId?: string, onTitleUpdateAction?: (title: string) => void }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
+  const [selectedModel, setSelectedModel] = useState(AI_MODELS[0].id)
   const [isLoading, setIsLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -29,6 +40,16 @@ export function ChatInterface() {
   }
 
   useEffect(() => {
+    if (conversationId) {
+      getMessages(conversationId).then(history => {
+        if (history && history.length > 0) {
+          setMessages(history.map(m => ({ id: m.id, role: m.role as "user" | "ai", content: m.content })))
+        }
+      })
+    }
+  }, [conversationId])
+
+  useEffect(() => {
     scrollToBottom()
   }, [messages, isLoading])
 
@@ -36,31 +57,74 @@ export function ChatInterface() {
     e?.preventDefault()
     if (!input.trim() || isLoading) return
 
+    const userContent = input;
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input,
+      content: userContent,
     }
 
     setMessages((prev) => [...prev, userMessage])
-    const currentInput = input
     setInput("")
     setIsLoading(true)
 
-    try {
-      const response = await orpheusAIChatInteraction({ message: currentInput })
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "ai",
-        content: response,
+    // Save user msg to DB (don't block the AI response if it's slow)
+    if (conversationId && conversationId.includes('-')) { // Basic check for UUID
+      addMessage(conversationId, "user", userContent).catch(err => 
+        console.error("Failed to save user message:", err)
+      );
+      
+      if (messages.length === 0 && onTitleUpdateAction) {
+        const words = userContent.trim().split(/\s+/);
+        const title = words.slice(0, 5).join(" ") + (words.length > 5 ? "..." : "");
+        onTitleUpdateAction(title);
+        updateConversationTitle(conversationId, title).catch(err =>
+          console.error("Failed to update title in DB:", err)
+        );
       }
-      setMessages((prev) => [...prev, aiMessage])
+    }
+
+    try {
+      // Create a placeholder AI message that we will update as we stream
+      const aiMessageId = (Date.now() + 1).toString()
+      setMessages((prev) => [...prev, {
+        id: aiMessageId,
+        role: "ai",
+        content: "",
+      }])
+      
+      const stream = await orpheusAIChatInteractionStream({ message: userContent, model: selectedModel })
+      
+      let fullContent = ""
+      
+      // @ts-ignore - Genkit streams are AsyncIterables in modern Next.js
+      for await (const chunk of stream) {
+        // Genkit stream chunks often contain the data in different formats depending on how they were sent
+        // When using sendChunk in defineFlow, the chunks are typically the values passed to sendChunk
+        const content = typeof chunk === 'string' ? chunk : (chunk as any).content || (chunk as any).value || "";
+        
+        if (content) {
+          fullContent += content;
+          setMessages((prev) => 
+            prev.map((msg) => 
+              msg.id === aiMessageId ? { ...msg, content: fullContent } : msg
+            )
+          );
+        }
+      }
+      
+      // Save AI msg to DB once fully received
+      if (conversationId && conversationId.includes('-')) {
+        addMessage(conversationId, "ai", fullContent).catch(err => 
+          console.error("Failed to save AI message:", err)
+        );
+      }
     } catch (error) {
       console.error("Chat Error:", error)
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "ai",
-        content: "I apologize, but I encountered an error connecting to the Hack Club AI Proxy. Please ensure your API key is set.",
+        content: "I apologize, but I encountered an error connecting to Orpheus. Please check your connection.",
       }
       setMessages((prev) => [...prev, errorMessage])
     } finally {
@@ -76,58 +140,108 @@ export function ChatInterface() {
   }
 
   return (
-    <div className="flex flex-col h-screen max-w-4xl mx-auto relative overflow-hidden">
+    <div className="flex flex-col h-screen w-full relative overflow-hidden bg-transparent">
       {/* Header */}
-      <header className="sticky top-0 z-20 w-full bg-background/80 backdrop-blur-md border-b border-white/5 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold font-headline text-orpheus-gradient flex items-center gap-2">
-          Orpheus AI
-        </h1>
-        <div className="flex items-center gap-3">
-          <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-          <span className="text-xs text-muted-foreground font-medium uppercase tracking-widest">Hack Club Proxy</span>
+      <header className="sticky top-0 z-20 w-full bg-background/40 backdrop-blur-xl border-b border-white/5 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold font-headline text-orpheus-gradient select-none">
+            Orpheus AI
+          </h1>
+          <div className="px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-[10px] text-accent uppercase tracking-tighter font-bold">
+            Pro
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <Select value={selectedModel} onValueChange={setSelectedModel}>
+            <SelectTrigger className="w-[180px] bg-secondary/50 border-white/10 h-8 text-xs focus:ring-0 focus:ring-offset-0">
+              <SelectValue placeholder="Select Model" />
+            </SelectTrigger>
+            <SelectContent>
+              {AI_MODELS.map(model => (
+                <SelectItem key={model.id} value={model.id}>
+                  {model.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="items-center gap-2 hidden sm:flex">
+            <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+            <span className="text-xs text-muted-foreground font-medium uppercase tracking-widest hidden sm:inline-block">OpenRouter</span>
+          </div>
         </div>
       </header>
 
       {/* Chat History */}
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-8 space-y-2 scroll-smooth"
+        className="flex-1 overflow-y-auto px-4 py-8 space-y-2 scroll-smooth !scrollbar-hide"
       >
-        {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center space-y-6 opacity-60">
-            <div className="bg-orpheus-gradient p-4 rounded-full cosmic-shadow">
-              <Sparkles className="h-10 w-10 text-white" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-semibold text-foreground">Welcome to Orpheus</h2>
-              <p className="max-w-xs text-muted-foreground">
-                Built by Hack Clubbers, powered by the Hack Club AI Proxy.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((msg) => (
-              <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
-            ))}
-            {isLoading && (
-              <div className="flex items-center gap-3 py-6 px-4 text-muted-foreground animate-pulse">
-                <Loader2 className="h-4 w-4 animate-spin text-accent" />
-                <span className="text-sm">Orpheus is thinking...</span>
+        <AnimatePresence initial={false}>
+          {messages.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="h-full flex flex-col items-center justify-center text-center space-y-6"
+            >
+              <div className="relative group">
+                <div className="absolute inset-0 bg-orpheus-gradient blur-2xl opacity-40 group-hover:opacity-60 transition-opacity" />
+                <div className="relative bg-orpheus-gradient p-6 rounded-3xl cosmic-shadow transform group-hover:scale-110 transition-transform duration-500">
+                  <Sparkles className="h-12 w-12 text-white" />
+                </div>
               </div>
-            )}
-          </div>
-        )}
+              <div className="space-y-2 max-w-xl px-4">
+                <h2 className="text-4xl font-extrabold text-white tracking-tight">Cosmic Intelligence</h2>
+                <p className="text-lg text-muted-foreground leading-relaxed">
+                  I am Orpheus, the celestial guide of Hack Club. Ask me anything about building, coding, or the stars.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl px-6 pt-4">
+                {["Explain quantum computing", "How to build a website?", "Who is Orpheus?", "Tell me a space joke"].map((prompt) => (
+                  <button 
+                    key={prompt}
+                    onClick={() => setInput(prompt)}
+                    className="text-left px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-xs text-muted-foreground hover:bg-white/10 hover:text-white transition-all hover:border-primary/30"
+                  >
+                    "{prompt}"
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          ) : (
+            <div className="space-y-4">
+              {messages.map((msg) => (
+                <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
+              ))}
+              {isLoading && (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex items-center gap-3 py-6 px-4 text-muted-foreground"
+                >
+                  <div className="flex gap-1">
+                    <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0 }} className="h-1.5 w-1.5 rounded-full bg-accent" />
+                    <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.2 }} className="h-1.5 w-1.5 rounded-full bg-accent" />
+                    <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.4 }} className="h-1.5 w-1.5 rounded-full bg-accent" />
+                  </div>
+                  <span className="text-xs font-medium uppercase tracking-widest text-accent/70">Orpheus is calculating...</span>
+                </motion.div>
+              )}
+            </div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Input Bar */}
-      <div className="p-4 sm:p-6 bg-gradient-to-t from-background via-background to-transparent">
+      <div className={cn(
+        "p-4 sm:p-6 transition-all duration-500 ease-in-out bg-gradient-to-t from-background/80 via-background/40 to-transparent backdrop-blur-sm",
+        messages.length === 0 ? "mx-auto w-full max-w-5xl pb-12 sm:pb-24" : "w-full"
+      )}>
         <form 
           onSubmit={handleSubmit}
-          className="relative group max-w-3xl mx-auto"
+          className="relative group max-w-6xl mx-auto"
         >
           <div className={cn(
-            "relative flex items-end w-full bg-secondary/50 border border-white/10 rounded-2xl overflow-hidden focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all",
+            "relative flex items-end w-full bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl overflow-hidden focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 transition-all duration-300 shadow-2xl",
             isLoading && "opacity-50"
           )}>
             <Textarea
@@ -154,7 +268,7 @@ export function ChatInterface() {
             </div>
           </div>
           <p className="mt-2 text-[10px] text-center text-muted-foreground/60 uppercase tracking-tighter">
-            Powered by Hack Club AI Proxy &bull; GPT-4o Mini
+            Powered by OpenRouter &bull; {AI_MODELS.find(m => m.id === selectedModel)?.name}
           </p>
         </form>
       </div>
