@@ -138,12 +138,22 @@ export function ChatInterface({ conversationId, onTitleUpdateAction }: { convers
           console.error("Failed to save AI message:", err)
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Chat Error:", error)
+      let errorDetail = "I apologize, but I encountered a cosmic disturbance while connecting to the Orpheus network.";
+      
+      if (error?.message?.includes('401') || error?.status === 401) {
+        errorDetail = "Authentication failed. The cosmic keys (API keys) seem to be invalid or expired.";
+      } else if (error?.message?.includes('404') || error?.status === 404) {
+        errorDetail = "The requested model was not found in the cosmic archives (404 Error).";
+      } else if (error?.message?.includes('500') || error?.status === 500) {
+        errorDetail = "The AI provider is experiencing a temporary blackout (500 Internal Server Error).";
+      }
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "ai",
-        content: "I apologize, but I encountered an error connecting to Orpheus. Please check your connection.",
+        content: `### ⚠️ Connection Error\n\n${errorDetail}\n\n**Please check:**\n- Your internet connectivity\n- If the AI provider (OpenRouter) is currently available\n- Refresh the page and try again`,
       }
       setMessages((prev) => [...prev, errorMessage])
     } finally {

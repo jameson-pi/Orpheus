@@ -4,11 +4,12 @@ import React, { useState, useEffect } from "react"
 import { getConversations, createConversation } from "@/app/actions/chat"
 import { ChatInterface } from "./chat-interface"
 import { Button } from "@/components/ui/button"
-import { Sparkles, Plus, MessageSquare, Menu, X } from "lucide-react"
+import { Sparkles, Plus, MessageSquare, Menu, X, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
 import { authClient } from "@/lib/auth-client"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 type Conversation = { id: string; title: string; createdAt?: Date; updatedAt?: Date }
 
@@ -16,23 +17,43 @@ export function ChatDashboard() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const { data: session, isPending } = authClient.useSession()
   const userId = session?.user?.id
+  const router = useRouter()
+
+  const handleSignOut = async () => {
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          router.push("/auth/sign-in");
+        },
+      },
+    });
+  };
 
   useEffect(() => {
+    if (isPending) return; // Wait for auth check to finish
+
     if (userId) {
       loadConversations()
     } else {
       setConversations([])
       setActiveId(null)
+      setIsLoadingConversations(false)
     }
-  }, [userId])
+  }, [userId, isPending])
 
   const loadConversations = async () => {
-    const data = await getConversations()
-    setConversations(data)
-    if (data.length > 0 && !activeId) {
-      setActiveId(data[0].id)
+    setIsLoadingConversations(true)
+    try {
+      const data = await getConversations()
+      setConversations(data)
+      if (data.length > 0 && !activeId) {
+        setActiveId(data[0].id)
+      }
+    } finally {
+      setIsLoadingConversations(false)
     }
   }
 
@@ -73,10 +94,13 @@ export function ChatDashboard() {
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-72 bg-secondary/20 backdrop-blur-2xl border-r border-white/5 transform transition-transform duration-500 ease-in-out lg:relative lg:translate-x-0 flex flex-col",
+        "fixed inset-y-0 left-0 z-50 w-72 bg-secondary/10 backdrop-blur-3xl border-r border-white/5 transform transition-transform duration-500 ease-in-out lg:relative lg:translate-x-0 flex flex-col shadow-2xl",
         isSidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="p-6 flex items-center justify-between border-b border-white/5">
+        {/* Sidebar background glow */}
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-accent/5 pointer-events-none" />
+        
+        <div className="p-6 flex items-center justify-between border-b border-white/5 relative z-10">
           <h2 className="text-xl font-bold font-headline text-orpheus-gradient flex items-center gap-3">
             <div className="relative">
               <Sparkles className="h-6 w-6 text-accent" />
@@ -89,17 +113,23 @@ export function ChatDashboard() {
           </Button>
         </div>
         
-        <div className="p-4">
+        <div className="p-4 relative z-10">
           <Button 
             onClick={handleNewChat}
-            className="w-full bg-white/5 hover:bg-white/10 text-white border border-white/10 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full bg-orpheus-gradient hover:opacity-90 text-white border-none shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] font-bold"
           >
             <Plus className="mr-2 h-4 w-4" /> New Chat
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-2 !scrollbar-hide">
-          {session ? (
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 !scrollbar-hide relative z-10">
+          {isPending || isLoadingConversations ? (
+             <div className="space-y-3 px-2 mt-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="w-full h-12 bg-white/5 animate-pulse rounded-xl" />
+                ))}
+             </div>
+          ) : session ? (
             <>
               {conversations.map(conv => (
                 <button
@@ -109,20 +139,23 @@ export function ChatDashboard() {
                     setIsSidebarOpen(false)
                   }}
                   className={cn(
-                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-300 relative group",
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-300 relative group overflow-hidden",
                     activeId === conv.id 
-                      ? "bg-primary/20 text-white border border-primary/30 cosmic-glow" 
+                      ? "bg-white/10 text-white border border-white/10 shadow-inner" 
                       : "hover:bg-white/5 text-muted-foreground hover:text-white"
                   )}
                 >
                   <MessageSquare className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-110", activeId === conv.id ? "text-accent" : "")} />
                   <span className="truncate text-sm font-medium">{conv.title}</span>
                   {activeId === conv.id && (
-                    <motion.div 
-                      layoutId="active-pill"
-                      className="absolute left-0 w-1 h-1/2 bg-accent rounded-full" 
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    />
+                    <>
+                      <motion.div 
+                        layoutId="active-pill"
+                        className="absolute left-0 w-1 h-1/2 bg-accent rounded-full" 
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      />
+                      <div className="absolute inset-0 bg-orpheus-gradient opacity-10" />
+                    </>
                   )}
                 </button>
               ))}
@@ -143,6 +176,32 @@ export function ChatDashboard() {
             </div>
           )}
         </div>
+
+        {/* User Profile / Logout Section */}
+        {session && (
+          <div className="p-4 border-t border-white/5 bg-black/20 backdrop-blur-md relative z-10">
+            <div className="flex items-center justify-between gap-3 px-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-8 w-8 rounded-full bg-orpheus-gradient flex items-center justify-center text-white font-bold text-xs shrink-0">
+                  {session.user?.email?.[0].toUpperCase() || 'U'}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs font-bold text-white truncate">{session.user?.name || 'Explorer'}</span>
+                  <span className="text-[10px] text-muted-foreground truncate">{session.user?.email}</span>
+                </div>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                onClick={handleSignOut}
+                title="Sign Out"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main Chat Area */}
@@ -156,7 +215,14 @@ export function ChatDashboard() {
           <Menu className="h-6 w-6" />
         </Button>
         
-        {activeId ? (
+        {isPending || isLoadingConversations ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex flex-col items-center space-y-4">
+              <Sparkles className="h-8 w-8 text-primary animate-pulse" />
+              <p className="text-sm text-muted-foreground animate-pulse">Loading cosmic interface...</p>
+            </div>
+          </div>
+        ) : activeId ? (
           <ChatInterface key={activeId} conversationId={activeId} onTitleUpdateAction={(title: string) => {
             // Optional: update title if we extract it from first msg
             setConversations(prev => prev.map(c => c.id === activeId ? {...c, title} : c));

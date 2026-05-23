@@ -21,12 +21,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <AuthProvider>
-      <html lang="en" className={`dark ${inter.variable}`}>
-        <body className="font-body antialiased selection:bg-primary/20 selection:text-primary">
+    <html lang="en" className={`dark ${inter.variable}`} suppressHydrationWarning>
+      <body 
+        className="font-body antialiased selection:bg-primary/20 selection:text-primary"
+        suppressHydrationWarning
+      >
+        <AuthProvider>
           {children}
-        </body>
-      </html>
-    </AuthProvider>
+        </AuthProvider>
+      </body>
+    </html>
   );
 }

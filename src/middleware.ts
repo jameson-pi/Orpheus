@@ -6,9 +6,9 @@ export default auth.middleware({
 
 export const config = {
   matcher: [
-    // Skip Next.js internals, static files, and auth-related paths
-    '/((?!_next|auth|api/auth|[^?]*\\.(?:html|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    // Always run for miscellaneous API routes, but exclude api/auth
-    '/(api(?!/auth)|trpc)(.*)',
+    // Skip Next.js internals, static files
+    '/((?!_next|[^?]*\\.(?:html|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Always run for API routes and trpc
+    '/(api|trpc)(.*)',
   ],
 };

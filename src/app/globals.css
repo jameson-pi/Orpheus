@@ -114,7 +114,43 @@
     scrollbar-width: none;
   }
 
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
+  /* Auth View integration */
+  .auth-view-wrapper div[class*="bg-card"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  .auth-view-wrapper div[class*="font-semibold"] {
+    @apply text-white text-2xl mb-2 !important;
+  }
+
+  .auth-view-wrapper input {
+    @apply bg-white/5 border-white/10 text-white placeholder:text-muted-foreground/50 transition-all duration-300 h-11 !important;
+  }
+
+  .auth-view-wrapper input:focus {
+    @apply border-primary/50 bg-white/10 ring-primary/20 !important;
+  }
+
+  .auth-view-wrapper button {
+    @apply transition-all duration-300 !important;
+  }
+
+  .auth-view-wrapper button[class*="bg-primary"] {
+    @apply bg-orpheus-gradient hover:opacity-90 text-white font-bold uppercase tracking-widest text-xs h-11 shadow-lg shadow-primary/20 !important;
+  }
+
+  .auth-view-wrapper button[class*="bg-secondary"] {
+    @apply bg-white/5 hover:bg-white/10 text-white border border-white/10 h-11 !important;
+  }
+
+  .auth-view-wrapper label {
+    @apply text-accent/80 font-bold text-[10px] uppercase tracking-[0.2em] mb-1.5 block !important;
+  }
+
+  .auth-view-wrapper a {
+    @apply text-accent hover:text-white transition-colors !important;
   }
 }

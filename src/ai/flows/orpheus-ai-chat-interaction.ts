@@ -8,7 +8,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { OpenRouter } from "@openrouter/sdk";
+import OpenAI from "openai";
 
 const OrpheusAIChatInteractionInputSchema = z.object({
   message: z.string().describe("The user's chat message to Orpheus AI."),
@@ -27,12 +27,6 @@ export type OrpheusAIChatInteractionOutput = z.infer<
   typeof OrpheusAIChatInteractionOutputSchema
 >;
 
-// Initialize OpenRouter client
-const client = new OpenRouter({
-  apiKey: process.env.HACK_CLUB_AI_KEY,
-  serverURL: 'https://ai.hackclub.com/proxy/v1',
-});
-
 const orpheusAIChatInteractionFlow = ai.defineFlow(
   {
     name: 'orpheusAIChatInteractionFlow',
@@ -40,25 +34,30 @@ const orpheusAIChatInteractionFlow = ai.defineFlow(
     outputSchema: OrpheusAIChatInteractionOutputSchema,
   },
   async (input, {sendChunk}) => {
-    if (!process.env.OPENROUTER_API_KEY && !process.env.HACK_CLUB_AI_KEY) {
-      throw new Error('OPENROUTER_API_KEY is not set in environment variables.');
+    const isOpenRouter = !!process.env.OPENROUTER_API_KEY && !process.env.OPENROUTER_API_KEY.startsWith('sk-hc-');
+    const apiKey = isOpenRouter ? process.env.OPENROUTER_API_KEY : (process.env.HACK_CLUB_AI_KEY || process.env.OPENROUTER_API_KEY);
+    
+    if (!apiKey) {
+      throw new Error('AI API key (OPENROUTER_API_KEY or HACK_CLUB_AI_KEY) is not set.');
     }
 
-    try {
-      // Map roles from our schema to OpenRouter roles (mapping 'ai' to 'assistant')
-      const mappedHistory = (input.history || []).map(m => {
-        if (m.role === 'ai') {
-          return { role: 'assistant' as const, content: m.content };
-        }
-        if (m.role === 'system') {
-          return { role: 'system' as const, content: m.content };
-        }
-        return { role: 'user' as const, content: m.content };
-      });
+    const baseURL = isOpenRouter 
+      ? 'https://openrouter.ai/api/v1'
+      : 'https://ai.hackclub.com/proxy/v1';
 
-      const messages: any[] = [
+    const openai = new OpenAI({
+      apiKey: apiKey,
+      baseURL: baseURL,
+      defaultHeaders: {
+        "HTTP-Referer": "https://orpheus-gilt.vercel.app",
+        "X-Title": "Orpheus AI",
+      }
+    });
+
+    try {
+      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         {
-          role: 'system' as const,
+          role: 'system',
           content: `You are Orpheus, a helpful and knowledgeable AI assistant. 
           
           Your personality: Professional, clear, and supportive.
@@ -68,24 +67,23 @@ const orpheusAIChatInteractionFlow = ai.defineFlow(
           - Use rich markdown formatting (H3 headers, bolding, lists, code blocks).
           - Always provide structured, easy-to-read answers.`
         },
-        ...mappedHistory,
+        ...(input.history || []).map(m => ({
+          role: (m.role === 'ai' ? 'assistant' : m.role) as any,
+          content: m.content
+        })),
         {
-          role: 'user' as const,
+          role: 'user',
           content: input.message
         }
       ];
 
-      const response = await client.chat.send({
-        chatRequest: {
-          model: input.model || 'google/gemini-3.5-flash',
-          messages: messages,
-          stream: true,
-        }
+      const stream = await openai.chat.completions.create({
+        model: input.model || 'google/gemini-3.5-flash',
+        messages: messages,
+        stream: true,
       });
 
       let fullContent = "";
-      // The OpenRouter SDK returns an AsyncIterable when stream is true
-      const stream = response as unknown as AsyncIterable<{ choices: { delta?: { content?: string } }[] }>;
       for await (const chunk of stream) {
         const content = chunk.choices[0]?.delta?.content || "";
         if (content) {
@@ -96,9 +94,9 @@ const orpheusAIChatInteractionFlow = ai.defineFlow(
 
       return fullContent || 'I processed your request, but the stars were silent. Try again?';
     } catch (error) {
-      console.error('OpenRouter API Error:', error);
+      console.error('AI Proxy Error:', error);
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to connect to Orpheus via OpenRouter: ${message}`);
+      throw new Error(`Failed to connect to Orpheus: ${message}`);
     }
   }
 );
@@ -111,11 +109,55 @@ export async function orpheusAIChatInteraction(
 
 /**
  * Streaming version of the interaction flow.
- * Note: Next.js Server Actions can return ReadableStreams in recent versions.
+ * Directly uses OpenAI client to ensure maximum compatibility with Next.js 15 streaming.
  */
-export async function orpheusAIChatInteractionStream(
+export async function* orpheusAIChatInteractionStream(
   input: OrpheusAIChatInteractionInput
 ) {
-  const { stream } = orpheusAIChatInteractionFlow.stream(input);
-  return stream;
+  const isOpenRouter = !!process.env.OPENROUTER_API_KEY && !process.env.OPENROUTER_API_KEY.startsWith('sk-hc-');
+  const apiKey = isOpenRouter ? process.env.OPENROUTER_API_KEY : (process.env.HACK_CLUB_AI_KEY || process.env.OPENROUTER_API_KEY);
+  
+  if (!apiKey) throw new Error('AI API key not set.');
+
+  const baseURL = isOpenRouter 
+    ? 'https://openrouter.ai/api/v1'
+    : 'https://ai.hackclub.com/proxy/v1';
+
+  const openai = new OpenAI({
+    apiKey: apiKey,
+    baseURL: baseURL,
+    defaultHeaders: {
+      "HTTP-Referer": "https://orpheus-gilt.vercel.app",
+      "X-Title": "Orpheus AI",
+    }
+  });
+
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    {
+      role: 'system',
+      content: `You are Orpheus, a helpful and knowledgeable AI assistant. 
+      Professional, clear, and supportive. Use rich markdown formatting.`
+    },
+    ...(input.history || []).map(m => ({
+      role: (m.role === 'ai' ? 'assistant' : m.role) as any,
+      content: m.content
+    })),
+    { role: 'user', content: input.message }
+  ];
+
+  try {
+    const stream = await openai.chat.completions.create({
+      model: input.model || 'google/gemini-3.5-flash',
+      messages: messages,
+      stream: true,
+    });
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || "";
+      if (content) yield content;
+    }
+  } catch (error) {
+    console.error('[Orpheus] Direct Stream Error:', error);
+    throw error;
+  }
 }
