@@ -1,4 +1,4 @@
-import { ChatDashboard } from "@/components/chat/chat-dashboard"
+import { ChatDashboard } from "../components/chat/chat-dashboard"
 
 function Stars() {
   return (
@@ -12,8 +12,8 @@ function Stars() {
             left: `${Math.random() * 100}%`,
             width: `${Math.random() * 3}px`,
             height: `${Math.random() * 3}px`,
-            "--duration": `${2 + Math.random() * 4}s`
-          } as any}
+            ["--duration" as string]: `${2 + Math.random() * 4}s`
+          } as React.CSSProperties}
         />
       ))}
     </div>
