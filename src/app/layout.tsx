@@ -1,6 +1,8 @@
 import type {Metadata} from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import '@neondatabase/neon-js/ui/css';
+import { AuthProvider } from '@/components/auth-provider';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -19,10 +21,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`dark ${inter.variable}`}>
-      <body className="font-body antialiased selection:bg-primary/20 selection:text-primary">
-        {children}
-      </body>
-    </html>
+    <AuthProvider>
+      <html lang="en" className={`dark ${inter.variable}`}>
+        <body className="font-body antialiased selection:bg-primary/20 selection:text-primary">
+          {children}
+        </body>
+      </html>
+    </AuthProvider>
   );
 }

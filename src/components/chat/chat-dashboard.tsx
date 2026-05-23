@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Sparkles, Plus, MessageSquare, Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
+import { authClient } from "@/lib/auth-client"
+import Link from "next/link"
 
 type Conversation = { id: string; title: string; createdAt?: Date; updatedAt?: Date }
 
@@ -14,10 +16,17 @@ export function ChatDashboard() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const { data: session, isPending } = authClient.useSession()
+  const userId = session?.user?.id
 
   useEffect(() => {
-    loadConversations()
-  }, [])
+    if (userId) {
+      loadConversations()
+    } else {
+      setConversations([])
+      setActiveId(null)
+    }
+  }, [userId])
 
   const loadConversations = async () => {
     const data = await getConversations()
@@ -90,33 +99,48 @@ export function ChatDashboard() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2 !scrollbar-hide">
-          {conversations.map(conv => (
-            <button
-              key={conv.id}
-              onClick={() => {
-                setActiveId(conv.id)
-                setIsSidebarOpen(false)
-              }}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-300 relative group",
-                activeId === conv.id 
-                  ? "bg-primary/20 text-white border border-primary/30 cosmic-glow" 
-                  : "hover:bg-white/5 text-muted-foreground hover:text-white"
+          {session ? (
+            <>
+              {conversations.map(conv => (
+                <button
+                  key={conv.id}
+                  onClick={() => {
+                    setActiveId(conv.id)
+                    setIsSidebarOpen(false)
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-300 relative group",
+                    activeId === conv.id 
+                      ? "bg-primary/20 text-white border border-primary/30 cosmic-glow" 
+                      : "hover:bg-white/5 text-muted-foreground hover:text-white"
+                  )}
+                >
+                  <MessageSquare className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-110", activeId === conv.id ? "text-accent" : "")} />
+                  <span className="truncate text-sm font-medium">{conv.title}</span>
+                  {activeId === conv.id && (
+                    <motion.div 
+                      layoutId="active-pill"
+                      className="absolute left-0 w-1 h-1/2 bg-accent rounded-full" 
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                </button>
+              ))}
+              {conversations.length === 0 && (
+                <p className="text-center text-xs text-muted-foreground mt-6">No previous chats</p>
               )}
-            >
-              <MessageSquare className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-110", activeId === conv.id ? "text-accent" : "")} />
-              <span className="truncate text-sm font-medium">{conv.title}</span>
-              {activeId === conv.id && (
-                <motion.div 
-                  layoutId="active-pill"
-                  className="absolute left-0 w-1 h-1/2 bg-accent rounded-full" 
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                />
-              )}
-            </button>
-          ))}
-          {conversations.length === 0 && (
-            <p className="text-center text-xs text-muted-foreground mt-6">No previous chats</p>
+            </>
+          ) : !isPending && (
+            <div className="flex flex-col items-center justify-center h-48 px-4 text-center space-y-4">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Sign in to save your cosmic conversations and keep them synced across space and time.
+              </p>
+              <Link href="/auth/sign-in">
+                <Button variant="outline" size="sm" className="w-full bg-accent/10 border-accent/20 hover:bg-accent/20 text-accent text-[10px] uppercase font-bold tracking-widest transition-all">
+                  Sign In Now
+                </Button>
+              </Link>
+            </div>
           )}
         </div>
       </div>

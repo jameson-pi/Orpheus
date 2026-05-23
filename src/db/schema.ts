@@ -2,6 +2,7 @@ import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const conversations = pgTable('orpheus_conversations', {
   id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id'), // clerk user id
   title: text('title').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

@@ -11,6 +11,9 @@ import { getMessages, addMessage, updateConversationTitle } from "@/app/actions/
 import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { motion, AnimatePresence } from "framer-motion"
+import { UserButton } from "@neondatabase/neon-js/auth/react/ui"
+import Link from "next/link"
+import { authClient } from "@/lib/auth-client"
 
 type Message = {
   id: string
@@ -26,13 +29,15 @@ const AI_MODELS = [
   { id: "qwen/qwen3.7-max", name: "Qwen3.7 Max" }
 ];
 
-export function ChatInterface({ conversationId, onTitleUpdateAction }: { conversationId?: string, onTitleUpdateAction?: (title: string) => void }) {
+export function ChatInterface({ conversationId, onTitleUpdateAction }: { conversationId: string, onTitleUpdateAction: (title: string) => void }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
-  const [selectedModel, setSelectedModel] = useState(AI_MODELS[0].id)
   const [isLoading, setIsLoading] = useState(false)
+  const [isThinking, setIsThinking] = useState(false)
+  const [selectedModel, setSelectedModel] = useState(AI_MODELS[0].id)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const { data: session } = authClient.useSession()
 
   const scrollToBottom = () => {
     if (scrollRef.current) {
@@ -169,6 +174,17 @@ export function ChatInterface({ conversationId, onTitleUpdateAction }: { convers
           <div className="items-center gap-2 hidden sm:flex">
             <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
             <span className="text-xs text-muted-foreground font-medium uppercase tracking-widest hidden sm:inline-block">OpenRouter</span>
+          </div>
+          <div className="flex items-center gap-4 ml-2">
+            {!session ? (
+              <Link href="/auth/sign-in">
+                <Button variant="outline" size="sm" className="bg-white/5 border-white/10 hover:bg-white/10 text-xs h-8">
+                  Sign In
+                </Button>
+              </Link>
+            ) : (
+              <UserButton />
+            )}
           </div>
         </div>
       </header>
