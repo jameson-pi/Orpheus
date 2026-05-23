@@ -1,11 +1,11 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
-import { Send, Sparkles, Loader2 } from "lucide-react"
+import { Send, Sparkles, Loader2, Cpu, Globe } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { MessageBubble } from "./message-bubble"
-import { orpheusAIChatInteraction, orpheusAIChatInteractionStream } from "@/ai/flows/orpheus-ai-chat-interaction"
+import { orpheusAIChatInteractionStream } from "@/ai/flows/orpheus-ai-chat-interaction"
 import { getMessages, addMessage, updateConversationTitle } from "@/app/actions/chat"
 import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -87,21 +87,32 @@ export function ChatInterface({ conversationId, onTitleUpdateAction }: { convers
     try {
       // Create a placeholder AI message that we will update as we stream
       const aiMessageId = (Date.now() + 1).toString()
+      
+      // Prepare history to send (previous messages)
+      const history = messages.map(m => ({
+        role: m.role,
+        content: m.content
+      }));
+
       setMessages((prev) => [...prev, {
         id: aiMessageId,
         role: "ai",
         content: "",
       }])
       
-      const stream = await orpheusAIChatInteractionStream({ message: userContent, model: selectedModel })
-      
+      const stream = await orpheusAIChatInteractionStream({ 
+        message: userContent, 
+        model: selectedModel,
+        history: history
+      })
+
       let fullContent = ""
       
-      // @ts-ignore - Genkit streams are AsyncIterables in modern Next.js
+      // @ts-expect-error - Genkit streams are AsyncIterables in modern Next.js
       for await (const chunk of stream) {
         // Genkit stream chunks often contain the data in different formats depending on how they were sent
         // When using sendChunk in defineFlow, the chunks are typically the values passed to sendChunk
-        const content = typeof chunk === 'string' ? chunk : (chunk as any).content || (chunk as any).value || "";
+        const content = (typeof chunk === 'string' ? chunk : (chunk as Record<string, any>).content || (chunk as Record<string, any>).value || "") as string;
         
         if (content) {
           fullContent += content;
@@ -152,18 +163,6 @@ export function ChatInterface({ conversationId, onTitleUpdateAction }: { convers
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <Select value={selectedModel} onValueChange={setSelectedModel}>
-            <SelectTrigger className="w-[180px] bg-secondary/50 border-white/10 h-8 text-xs focus:ring-0 focus:ring-offset-0">
-              <SelectValue placeholder="Select Model" />
-            </SelectTrigger>
-            <SelectContent>
-              {AI_MODELS.map(model => (
-                <SelectItem key={model.id} value={model.id}>
-                  {model.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <div className="items-center gap-2 hidden sm:flex">
             <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
             <span className="text-xs text-muted-foreground font-medium uppercase tracking-widest hidden sm:inline-block">OpenRouter</span>
@@ -241,34 +240,57 @@ export function ChatInterface({ conversationId, onTitleUpdateAction }: { convers
           className="relative group max-w-6xl mx-auto"
         >
           <div className={cn(
-            "relative flex items-end w-full bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl overflow-hidden focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 transition-all duration-300 shadow-2xl",
+            "relative flex flex-col w-full bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl overflow-hidden focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 transition-all duration-300 shadow-2xl",
             isLoading && "opacity-50"
           )}>
-            <Textarea
-              ref={textareaRef}
-              placeholder="Message Orpheus AI..."
-              className="flex-1 bg-transparent border-none focus-visible:ring-0 resize-none py-4 px-5 min-h-[56px] max-h-48 scrollbar-hide"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={isLoading}
-            />
-            <div className="p-2">
-              <Button
-                size="icon"
-                type="submit"
-                disabled={!input.trim() || isLoading}
-                className={cn(
-                  "rounded-xl transition-all",
-                  input.trim() ? "bg-orpheus-gradient shadow-lg" : "bg-muted text-muted-foreground"
-                )}
-              >
-                {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-              </Button>
+            <div className="flex items-center px-4 pt-3 gap-2">
+              <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger className="w-fit bg-white/5 border-none h-7 text-[10px] focus:ring-0 focus:ring-offset-0 hover:bg-white/10 transition-colors rounded-full px-3 text-muted-foreground uppercase tracking-wider font-bold">
+                  <Cpu className="h-3 w-3 mr-2" />
+                  <SelectValue placeholder="Model" />
+                </SelectTrigger>
+                <SelectContent className="bg-secondary/90 backdrop-blur-xl border-white/10">
+                  {AI_MODELS.map(model => (
+                    <SelectItem key={model.id} value={model.id} className="text-[10px] font-bold uppercase tracking-wider">
+                      {model.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="h-4 w-[1px] bg-white/10 mx-1" />
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 border border-white/5">
+                <Globe className="h-3 w-3 text-accent/50" />
+                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">Online</span>
+              </div>
+            </div>
+            
+            <div className="flex items-end flex-1">
+              <Textarea
+                ref={textareaRef}
+                placeholder="Message Orpheus AI..."
+                className="flex-1 bg-transparent border-none focus-visible:ring-0 resize-none py-4 px-5 min-h-[56px] max-h-48 scrollbar-hide text-sm"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isLoading}
+              />
+              <div className="p-2">
+                <Button
+                  size="icon"
+                  type="submit"
+                  disabled={!input.trim() || isLoading}
+                  className={cn(
+                    "rounded-2xl h-10 w-10 transition-all",
+                    input.trim() ? "bg-orpheus-gradient shadow-lg scale-100 hover:scale-105" : "bg-muted text-muted-foreground scale-95"
+                  )}
+                >
+                  {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                </Button>
+              </div>
             </div>
           </div>
-          <p className="mt-2 text-[10px] text-center text-muted-foreground/60 uppercase tracking-tighter">
-            Powered by OpenRouter &bull; {AI_MODELS.find(m => m.id === selectedModel)?.name}
+          <p className="mt-3 text-[9px] text-center text-muted-foreground/40 uppercase tracking-[0.2em] font-medium">
+            Cosmic Computing Interface &bull; {AI_MODELS.find(m => m.id === selectedModel)?.name}
           </p>
         </form>
       </div>

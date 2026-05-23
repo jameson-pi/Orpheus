@@ -87,4 +87,34 @@
     0%, 100% { opacity: 0.3; transform: scale(1); }
     50% { opacity: 1; transform: scale(1.2); }
   }
+
+  /* Prose overrides for better AI response readability */
+  .prose {
+    --tw-prose-body: theme('colors.foreground');
+    --tw-prose-headings: theme('colors.white');
+    --tw-prose-links: theme('colors.accent.DEFAULT');
+    --tw-prose-bold: theme('colors.white');
+    --tw-prose-counters: theme('colors.muted.foreground');
+    --tw-prose-bullets: theme('colors.accent.DEFAULT');
+    --tw-prose-quotes: theme('colors.muted.foreground');
+    --tw-prose-hr: theme('colors.border');
+    --tw-prose-th-borders: theme('colors.border');
+    --tw-prose-td-borders: theme('colors.border');
+  }
+
+  .prose h3 {
+    @apply text-xl font-bold mt-8 mb-4 text-accent;
+  }
+
+  .prose p {
+    @apply mb-4 leading-relaxed;
+  }
+
+  .prose ul, .prose ol {
+    @apply mb-6 ml-4;
+  }
+
+  .prose li {
+    @apply mb-2;
+  }
 }

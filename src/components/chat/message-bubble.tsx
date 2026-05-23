@@ -4,7 +4,9 @@ import { cn } from "@/lib/utils"
 import { Sparkles, User } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
+import { useState } from "react"
+import { Copy, Check } from "lucide-react"
 
 interface MessageBubbleProps {
   role: "user" | "ai"
@@ -13,6 +15,13 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ role, content }: MessageBubbleProps) {
   const isUser = role === "user"
+  const [copied, setCopying] = useState(false)
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(content)
+    setCopying(true)
+    setTimeout(() => setCopying(false), 2000)
+  }
 
   return (
     <motion.div
@@ -37,9 +46,20 @@ export function MessageBubble({ role, content }: MessageBubbleProps) {
         </div>
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-          {isUser ? "You" : "Orpheus AI"}
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+            {isUser ? "You" : "Orpheus AI"}
+          </p>
+          {!isUser && (
+            <button 
+              onClick={handleCopy}
+              className="text-muted-foreground/40 hover:text-accent transition-colors p-1 rounded-md hover:bg-white/5"
+              title="Copy message"
+            >
+              {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+            </button>
+          )}
+        </div>
         <div className={cn(
           "prose prose-invert max-w-none text-base leading-relaxed text-foreground/90",
           isUser ? "whitespace-pre-wrap" : "selection:bg-accent/30"

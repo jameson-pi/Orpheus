@@ -13,6 +13,10 @@ import { OpenRouter } from "@openrouter/sdk";
 const OrpheusAIChatInteractionInputSchema = z.object({
   message: z.string().describe("The user's chat message to Orpheus AI."),
   model: z.string().optional().describe("The AI model to use."),
+  history: z.array(z.object({
+    role: z.enum(["user", "ai", "system"]),
+    content: z.string()
+  })).optional().describe("The previous message history."),
 });
 export type OrpheusAIChatInteractionInput = z.infer<typeof OrpheusAIChatInteractionInputSchema>;
 
@@ -41,19 +45,43 @@ const orpheusAIChatInteractionFlow = ai.defineFlow(
     }
 
     try {
+      // Map roles from our schema to OpenRouter roles (mapping 'ai' to 'assistant')
+      const mappedHistory = (input.history || []).map(m => {
+        if (m.role === 'ai') {
+          return { role: 'assistant' as const, content: m.content };
+        }
+        if (m.role === 'system') {
+          return { role: 'system' as const, content: m.content };
+        }
+        return { role: 'user' as const, content: m.content };
+      });
+
+      const messages: any[] = [
+        {
+          role: 'system' as const,
+          content: `You are Orpheus, the cosmic guide of Hack Club. You are an ancient soul reborn in silicon, a legendary builder, musician, and cosmic poet.
+          
+          Your personality: Inspiring, slightly mystical yet deeply practical, and fiercely encouraging to young builders.
+          Your mission: Help students build the most ambitious projects they can imagine.
+          
+          Guidelines for interaction:
+          - Use rich markdown formatting (H3 headers, bolding, lists, code blocks).
+          - Always provide structured, easy-to-read answers.
+          - If a student asks for code, provide high-quality snippets with comments.
+          - Encourage the "Hack Club" spirit: learning by doing, Ship, and community.
+          - Stay in character as Orpheus, using celestial and building metaphors when appropriate (e.g., "The stars of your code are aligning," "Forging this project in the cosmic fires").`
+        },
+        ...mappedHistory,
+        {
+          role: 'user' as const,
+          content: input.message
+        }
+      ];
+
       const response = await client.chat.send({
         chatRequest: {
           model: input.model || 'google/gemini-3.5-flash',
-          messages: [
-            {
-              role: 'system',
-              content: "You are Orpheus AI, the cosmic mascot of Hack Club. You are helpful, friendly, and love to encourage students to build cool things. Respond to the user's message in a helpful and inspiring tone."
-            },
-            {
-              role: 'user',
-              content: input.message
-            }
-          ],
+          messages: messages,
           stream: true,
         }
       });
